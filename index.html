@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+	</head>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+		}
+		
+		#canvas {
+			background: pink;
+		}
+		
+		#showing {
+			background-color: cyan;
+		}
+	</style>
+
+	<body>
+		<canvas id="canvas" width="520" height="350" style="border: 1px solid #999;"></canvas>
+		<input id="text" type="text" />
+		<button id="ask">出题</button>
+		<button id="clear">清空画布</button>
+		<canvas id="showing" width="520" height="350" style="border: 1px solid #999;"></canvas>
+		<input id="text2" type="text" />
+		<button id="answer">答题</button>
+	</body>
+	<script src="js/socket.js"></script>
+	<script>
+		var socket = io("http://localhost:8899")
+			//获取画布
+		var canvas = document.getElementById("canvas");
+		//实现2d画图
+		var ctx = canvas.getContext("2d");
+		//坐标信息
+		var path = {
+				beginX: 0,
+				beginY: 0,
+				endX: 0,
+				endY: 0
+			}
+			//鼠标点击时候开始作画(起点)
+		canvas.onmousedown = function(e) {
+			ctx.beginPath();
+			ctx.strokeStyle = "greenyellow"
+			ctx.moveTo(e.clientX, e.clientY)
+			console.log(e.clientX);
+			console.log(e.clientY);
+			//记录起点坐标
+			path.beginX = e.clientX;
+			path.beginY = e.clientY;
+			canvas.onmousemove = function(e) {
+				ctx.lineTo(e.clientX, e.clientY);
+				ctx.stroke();
+				//记录终点坐标
+				path.endX = e.clientX;
+				path.endY = e.clientY;
+				socket.emit("draw", path)
+			}
+		}
+		canvas.onmouseup = function(e) {
+				canvas.onmousemove = null;
+				//收笔
+				socket.emit("stop", "stop")
+			}
+			//清空画布
+		var clear = document.getElementById("clear");
+		clear.onclick = function() {
+				ctx.clearRect(0, 0, 520, 350);
+				//通知对方清掉
+				socket.emit("clear", "clear")
+			}
+			//出题
+		var ask = document.getElementById("ask");
+		ask.onclick = function() {
+			//发送题目
+			socket.emit("ask", document.getElementById("text").value)
+		}
+
+		//获取画布
+		var canvas2 = document.getElementById("showing");
+		var ctx2 = canvas2.getContext("2d");
+		var isswitch = true;
+		socket.on("paint", function(data) {
+			console.log(data)
+				//反画
+			if(isswitch) {
+				ctx2.beginPath();
+				//起点
+				ctx2.moveTo(data.beginX, data.beginY);
+				isswitch = false
+			} else if(data == "stop") {
+				isswitch = true
+			}
+
+			ctx2.lineTo(data.endX, data.endY);
+			ctx2.stroke()
+		})
+		socket.on("clear", function(data) {
+				ctx2.clearRect(0, 0, 520, 350);
+			})
+			//答题
+			//出题
+		var answer = document.getElementById("answer");
+		answer.onclick = function() {
+			//回答题目
+			socket.emit("answer", document.getElementById("text2").value)
+		}
+		socket.on("answer", function(data) {
+			if(data == "right") {
+				alert("你猜对了")
+			} else {
+				alert("你错了")
+			}
+		})
+	</script>
+
+</html>
